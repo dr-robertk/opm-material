@@ -260,7 +260,24 @@ public:
         return *this;
     }
 
-    // add two evaluation objects
+    // division of a constant by an Evaluation
+    template <class RhsValueType>
+    static inline Evaluation divide(const RhsValueType& a, const Evaluation& b)
+    {
+        Evaluation result;
+
+        const ValueType tmp = 1.0/b.value();
+        result.setValue( a*tmp );
+        const ValueType df_dg = - result.value()*tmp;
+
+        for (int i = dstart_; i < dend_; ++i) {
+            result.data_[i] = df_dg * b.data_[i];
+        }
+
+        return result;
+    }
+
+// add two evaluation objects
     Evaluation operator+(const Evaluation& other) const
     {
         Evaluation result(*this);
@@ -486,16 +503,23 @@ Evaluation<ValueType, numVars> operator-(const RhsValueType& a, const Evaluation
 template <class RhsValueType, class ValueType, int numVars>
 Evaluation<ValueType, numVars> operator/(const RhsValueType& a, const Evaluation<ValueType, numVars>& b)
 {
-    Evaluation<ValueType, numVars> tmp(a);
-    tmp /= b;
-    return tmp;
+    return Evaluation<ValueType, numVars>::divide( a, b );
 }
 
 template <class RhsValueType, class ValueType, int numVars>
 Evaluation<ValueType, numVars> operator*(const RhsValueType& a, const Evaluation<ValueType, numVars>& b)
 {
-    Evaluation<ValueType, numVars> result(b);
-    result *= a;
+//  TODO: This be used but will alter convergence results.
+//  Evaluation<ValueType, numVars> result(b);
+//  result *= a;
+//  return result;
+
+    Evaluation<ValueType, numVars> result;
+
+    result.setValue(a*b.value());
+    for (unsigned varIdx = 0; varIdx < numVars; ++varIdx)
+        result.setDerivative(varIdx, a*b.derivative(varIdx));
+
     return result;
 }
 

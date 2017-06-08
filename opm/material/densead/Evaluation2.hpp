@@ -251,7 +251,23 @@ public:
         return *this;
     }
 
-    // add two evaluation objects
+    // division of a constant by an Evaluation
+    template <class RhsValueType>
+    static inline Evaluation divide(const RhsValueType& a, const Evaluation& b)
+    {
+        Evaluation result;
+
+        const ValueType tmp = 1.0/b.value();
+        result.setValue( a*tmp );
+        const ValueType df_dg = - result.value()*tmp;
+
+        result.data_[1] = df_dg * b.data_[1];
+        result.data_[2] = df_dg * b.data_[2];
+
+        return result;
+    }
+
+// add two evaluation objects
     Evaluation operator+(const Evaluation& other) const
     {
         Evaluation result(*this);
