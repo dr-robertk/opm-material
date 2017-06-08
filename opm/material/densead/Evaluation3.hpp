@@ -31,6 +31,7 @@
 #ifndef OPM_DENSEAD_EVALUATION3_HPP
 #define OPM_DENSEAD_EVALUATION3_HPP
 
+#include "Evaluation.hpp"
 #include "Math.hpp"
 
 #include <opm/common/Valgrind.hpp>
@@ -230,20 +231,17 @@ public:
         return *this;
     }
 
-    // m(u*v)' = (v'u + u'v)
+    // m(u*v)' = (vu' - uv')/v^2
     Evaluation& operator/=(const Evaluation& other)
     {
-        // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u - u'v)/v^2.
-        const ValueType v_vv = 1.0 / other.value();
-        const ValueType u_vv = value() * v_vv * v_vv;
-
-        // value
-        data_[valuepos_] *= v_vv;
-
-        //  derivatives
-        data_[1] = data_[1] * v_vv - other.data_[1] * u_vv;
-        data_[2] = data_[2] * v_vv - other.data_[2] * u_vv;
-        data_[3] = data_[3] * v_vv - other.data_[3] * u_vv;
+        // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u -
+        // u'v)/v^2.
+        ValueType& u = data_[ valuepos_ ];
+        const ValueType& v = other.value();
+        data_[1] = (v*data_[1] - u*other.data_[1])/(v*v);
+        data_[2] = (v*data_[2] - u*other.data_[2])/(v*v);
+        data_[3] = (v*data_[3] - u*other.data_[3])/(v*v);
+        u /= v;
 
         return *this;
     }
@@ -278,7 +276,7 @@ public:
 
         return result;
     }
-
+    
     // add two evaluation objects
     Evaluation operator+(const Evaluation& other) const
     {

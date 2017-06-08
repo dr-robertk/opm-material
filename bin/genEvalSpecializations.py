@@ -67,6 +67,7 @@ specializationTemplate = \
 #define OPM_DENSEAD_EVALUATION{{numDerivs}}_HPP
 {% endif %}\
 
+#include "Evaluation.hpp"
 #include "Math.hpp"
 
 #include <opm/common/Valgrind.hpp>
@@ -316,26 +317,26 @@ public:
         return *this;
     }
 
-    // m(u*v)' = (v'u + u'v)
+    // m(u*v)' = (vu' - uv')/v^2
     Evaluation& operator/=(const Evaluation& other)
     {
-        // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u - u'v)/v^2.
-        const ValueType v_vv = 1.0 / other.value();
-        const ValueType u_vv = value() * v_vv * v_vv;
-
-        // value
-        data_[valuepos_] *= v_vv;
-
-        //  derivatives
+        // values are divided, derivatives follow the rule for division, i.e., (u/v)' = (v'u -
+        // u'v)/v^2.
+        ValueType& u = data_[ valuepos_ ];
+        const ValueType& v = other.value();
 {% if numDerivs < 0 %}\
-        for (int i = dstart_; i < dend_; ++i) {
-            data_[i] = data_[i] * v_vv - other.data_[i] * u_vv;
+        for (unsigned idx = dstart_; idx < dend_; ++idx) {
+            const ValueType& uPrime = data_[idx];
+            const ValueType& vPrime = other.data_[idx];
+
+            data_[idx] = (v*uPrime - u*vPrime)/(v*v);
         }
 {% else %}\
 {%   for i in range(1, numDerivs+1) %}\
-        data_[{{i}}] = data_[{{i}}] * v_vv - other.data_[{{i}}] * u_vv;
+        data_[{{i}}] = (v*data_[{{i}}] - u*other.data_[{{i}}])/(v*v);
 {%   endfor %}\
 {% endif %}\
+        u /= v;
 
         return *this;
     }
@@ -381,7 +382,7 @@ public:
 
         return result;
     }
-
+    
     // add two evaluation objects
     Evaluation operator+(const Evaluation& other) const
     {
@@ -621,14 +622,23 @@ Evaluation<ValueType, numVars> operator-(const RhsValueType& a, const Evaluation
 template <class RhsValueType, class ValueType, int numVars>
 Evaluation<ValueType, numVars> operator/(const RhsValueType& a, const Evaluation<ValueType, numVars>& b)
 {
-    return Evaluation<ValueType, numVars>::divide(a, b);
+    return Evaluation<ValueType, numVars>::divide( a, b );
 }
 
 template <class RhsValueType, class ValueType, int numVars>
 Evaluation<ValueType, numVars> operator*(const RhsValueType& a, const Evaluation<ValueType, numVars>& b)
 {
-    Evaluation<ValueType, numVars> result(b);
-    result *= a;
+//  TODO: This be used but will alter convergence results.
+//  Evaluation<ValueType, numVars> result(b);
+//  result *= a;
+//  return result;
+
+    Evaluation<ValueType, numVars> result;
+
+    result.setValue(a*b.value());
+    for (unsigned varIdx = 0; varIdx < numVars; ++varIdx)
+        result.setDerivative(varIdx, a*b.derivative(varIdx));
+
     return result;
 }
 
